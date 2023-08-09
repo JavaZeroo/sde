@@ -1,3 +1,9 @@
 runs/
 wandb/
 outs/
+*__pycache__*
+.idea/
+experiments/
+BBnn_gen_multi_gpu.py
+BBnn_gen_test.py
+BBnn_gen.py
