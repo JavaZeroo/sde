@@ -7,3 +7,4 @@ experiments/
 BBnn_gen_multi_gpu.py
 BBnn_gen_test.py
 BBnn_gen.py
+.ipynb_checkpoints/

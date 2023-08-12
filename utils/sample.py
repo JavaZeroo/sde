@@ -1,5 +1,6 @@
 import torch
 import math
+import torchvision
 
 def sample_gaussian_mixture(nb):
     p, std = 0.3, 0.2
@@ -49,5 +50,5 @@ def sample_spiral(nb):
 
 def sample_mnist(nb):
     train_set = torchvision.datasets.MNIST(root="./data/", train=True, download=True)
-    result = train_set.data[:nb].to(device).view(-1, 1, 28, 28).float()
+    result = train_set.data[:nb].to('cuda').view(-1, 1, 28, 28).float()
     return result

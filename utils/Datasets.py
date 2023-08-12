@@ -8,7 +8,7 @@ class BBdataset(Dataset):
         return len(self.data)  
     
     def __getitem__(self, index):
-        return self.data[index, :].reshape(1, -1)
+        return self.data[index, :]
     
     
 def get_dataloader(raw_data, args):
