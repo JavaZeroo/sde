@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 from pathlib import Path
 import shutil
 import matplotlib.animation as animation
-
+from rich import print
 
 def draw_gaussian2d(ts, bridge, colors=True):
     def get_color(point):
@@ -150,7 +150,7 @@ def draw_3d_line(bridge_tensor, sample_rate=0.1, time_rate=0.1, colors=True):
     fig.show()
     
     
-def plot_source_and_target(sour, targ, left_title="Source Sample", right_title="Target Sample", save_path=None):
+def plot_source_and_target(sour, targ, left_title="Source Sample", right_title="Target Sample", save_path=None, bound=8):
     fig, axs = plt.subplots(1, 2, figsize=(10, 5))
     axs[0].scatter(*sour.T, c='#D27685', s=10, alpha=0.6)
     axs[1].scatter(*targ.T, c='#37306B', s=10, alpha=0.6)
@@ -158,10 +158,10 @@ def plot_source_and_target(sour, targ, left_title="Source Sample", right_title="
     axs[1].set_title(right_title)
     axs[0].grid(True, alpha=0.3)
     axs[1].grid(True, alpha=0.3)
-    axs[0].set_xlim(-8, 8)
-    axs[0].set_ylim(-8, 8)
-    axs[1].set_xlim(-8, 8)
-    axs[1].set_ylim(-8, 8)
+    axs[0].set_xlim(-bound, bound)
+    axs[0].set_ylim(-bound, bound)
+    axs[1].set_xlim(-bound, bound)
+    axs[1].set_ylim(-bound, bound)
     fig.show()
     if save_path is not None:
         fig.savefig(save_path)
