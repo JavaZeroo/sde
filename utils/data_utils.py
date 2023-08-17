@@ -248,7 +248,7 @@ def preprocess_mnist_data(args):
 
 
 
-def get_data(args):
+def get_ds(args):
     if args.task == 'gaussian2minst':
         ts, bridge, drift, source, target = gen_mnist_data(nums=25)
     # ts, bridge, drift, source, target, ret = normalize_dataset(ts, bridge, drift, source, target)
