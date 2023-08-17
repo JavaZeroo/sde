@@ -49,6 +49,6 @@ def sample_spiral(nb):
 
 
 def sample_mnist(nb):
-    train_set = torchvision.datasets.MNIST(root="./data/", train=True, download=True)
+    train_set = torchvision.datasets.MNIST(rootw="./data/", train=True, download=True)
     result = train_set.data[:nb].to('cuda').view(-1, 1, 28, 28).float()
     return result

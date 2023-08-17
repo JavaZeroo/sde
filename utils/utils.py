@@ -8,6 +8,8 @@ from pathlib import Path
 import shutil
 import matplotlib.animation as animation
 from rich import print
+from tqdm import tqdm
+import torchvision
 
 def draw_gaussian2d(ts, bridge, colors=True):
     def get_color(point):
@@ -44,6 +46,9 @@ def draw_gaussian2d(ts, bridge, colors=True):
     fig.show()
     
 def draw_gaussian2d_gif(bridge):
+    """
+    Decrapated
+    """
     def get_color(point):
         x, y = point
         if x > 0 and y > 0:
@@ -166,7 +171,7 @@ def plot_source_and_target(sour, targ, left_title="Source Sample", right_title="
     if save_path is not None:
         fig.savefig(save_path)
     
-def save_gif_frame(bridge, save_path=None):
+def save_gif_frame(bridge, save_path=None, bound=10):
     assert save_path is not None, "save_path cannot be None"
     save_path = Path(save_path)
     bridge = bridge[::10, :, :].numpy()  # 降低采样率
@@ -183,8 +188,8 @@ def save_gif_frame(bridge, save_path=None):
         ax.clear()
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
-        ax.set_xlim(-10, 10)
-        ax.set_ylim(-10, 10)
+        ax.set_xlim(-bound, bound)
+        ax.set_ylim(-bound, bound)
         x = bridge[i, :, 0]  # 注意：
         y = bridge[i, :, 1]  # 注意：
         
@@ -201,31 +206,56 @@ def save_gif_frame(bridge, save_path=None):
     if temp_dir.exists():
         shutil.rmtree(temp_dir)
 
+def binary(x):
+    x = (x - x.min()) / (x.max() - x.min())
+    x = torch.where(x > 0.3, torch.ones_like(x), torch.zeros_like(x))
+    return x
 
-# 生成初始和目标密度样本
+def concat_mnist(data, x=5, y=5):
+    if isinstance(data, np.ndarray):
+        data = torch.from_numpy(data)
+    data = data.view(x, y, 28, 28)
+    data = torch.concatenate([torch.cat([data[i, j] for j in range(x)], dim=1) for i in range(y)], dim=0)
+    return data
 
+def plot_source_and_target_mnist(sour, targ, left_title="Source Sample", right_title="Target Sample", save_path=None, show=False):
+    sour = concat_mnist(sour)
+    targ = concat_mnist(targ)
+    
+    fig, axs = plt.subplots(1, 2, figsize=(10, 5))
+    axs[0].imshow(sour.cpu().numpy(), cmap='gray')
+    axs[1].imshow(targ.cpu().numpy(), cmap='gray')
+    axs[0].set_title(left_title)
+    axs[1].set_title(right_title)
+    if show:
+        fig.show()
+    if save_path is not None:
+        fig.savefig(save_path)
 
-# 生成二维Brownian bridge
-def gen_bridge_2d(x, y, ts, T, num_samples):
-    sigma = 1
-    bridge = torch.zeros((ts.shape[0], num_samples, 2))
-    drift = torch.zeros((ts.shape[0], num_samples, 2))
-    bridge[0] = x
-    for i in range(len(ts) - 1):
-        dt = ts[i+1] - ts[i]
-        dydt = (y - bridge[i]) / (T - ts[i])
-        drift[i, :] = dydt
-        diffusion = sigma * torch.sqrt(dt) * torch.randn(num_samples, 2)
-        bridge[i+1] = bridge[i] + dydt * dt
-        bridge[i+1, :] += diffusion
-    return bridge, drift
+def save_gif_frame_mnist(bridge, save_path=None, save_name='brownian_bridge.gif'):
+    assert save_path is not None, "save_path cannot be None"
+    save_path = Path(save_path)
+    bridge = bridge[::10, :, :].numpy()  # 降低采样率
 
-# 主函数
-def gen_2d_data(source_dist, target_dist, num_samples=1000, epsilon=0.001, T=1):
-    if not isinstance(num_samples, int):
-        num_samples = int(num_samples)
-    ts = torch.arange(0, T+epsilon, epsilon)
-    source_dist = torch.Tensor(source_dist)
-    target_dist = torch.Tensor(target_dist)
-    bridge, drift = gen_bridge_2d(source_dist, target_dist, ts, T=T, num_samples=num_samples)
-    return ts, bridge, drift, source_dist, target_dist
+    temp_dir = save_path / 'temp'
+    if temp_dir.exists():
+        shutil.rmtree(temp_dir)
+    temp_dir.mkdir(exist_ok=True)
+    frame = 0
+    
+    # color_map = -np.sqrt(bridge[0, :, 0]**2 + bridge[0, :, 1]**2)
+    for i in track(range(bridge.shape[0]), description="Processing image"):
+        fig, ax = plt.subplots(figsize=(8, 8))
+        ax.clear()
+        ax.imshow(concat_mnist(bridge[i]).cpu().numpy(), cmap='gray')
+        fig.savefig(save_path / 'temp' / f'{frame:03d}.png', dpi=100)
+        frame += 1
+        fig.show()
+        plt.close('all')
+    frames = []
+    for i in range(bridge.shape[0]):
+        frame_image = imageio.imread(save_path / 'temp' / f'{i:03d}.png')
+        frames.append(frame_image)
+    imageio.mimsave(save_path / save_name, frames, duration=0.2)
+    if temp_dir.exists():
+        shutil.rmtree(temp_dir)
