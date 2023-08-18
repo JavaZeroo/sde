@@ -144,12 +144,12 @@ def main_worker(args):
             TimeElapsedColumn(),
             transient=False,
         ) as progress:
-        task1 = progress.add_task("[gold]Training whole dataset (lr: X) (loss=X)", total=ds_info['nums_sub_ds']*args.epoch_nums)
+        task1 = progress.add_task("[red]Training whole dataset (lr: X) (loss=X)", total=ds_info['nums_sub_ds']*args.epoch_nums)
         while not progress.finished:
             if ds_info['nums_sub_ds'] == 1:
                 new_dl = read_ds_from_pkl(args, 
                                           real_metadata,
-                                          args.ds_cached_dir / f"new_ds_{int(iter%ds_info['nums_sub_ds'])}.pkl" 
+                                          args.ds_cached_dir / f"new_ds_0.pkl" 
                                           )
             for iter in range(ds_info['nums_sub_ds']*args.epoch_nums):
                 if ds_info['nums_sub_ds'] > 1:
@@ -158,7 +158,7 @@ def main_worker(args):
                                             args.ds_cached_dir / f"new_ds_{int(iter%ds_info['nums_sub_ds'])}.pkl" 
                                             )
 
-                task2 = progress.add_task(f"[green]Training sub dataset {int(iter%ds_info['nums_sub_ds'])}", total=args.iter_nums)
+                task2 = progress.add_task(f"[dark_orange]Training sub dataset {int(iter%ds_info['nums_sub_ds'])}", total=args.iter_nums)
                 for _ in range(args.iter_nums):
                     now_loss = train(args, model ,new_dl, optimizer, scheduler, loss_fn, before_train, after_train)
                     loss_list.append(now_loss)
@@ -167,8 +167,8 @@ def main_worker(args):
                 progress.update(task2, visible=False)
                 progress.remove_task(task2)
                 torch.save(model.state_dict(), args.log_dir / f'model_{model.__class__.__name__}_{int(iter)}.pth')
-                progress.update(task1, advance=1, description="[red]Training whole dataset (l   r: %2.5f) (loss=%2.5f)" % (cur_lr, now_loss))
-
+                progress.update(task1, advance=1, description="[red]Training whole dataset (lr: %2.5f) (loss=%2.5f)" % (cur_lr, now_loss))
+                progress.log(f"[green]sub dataset {int(iter%ds_info['nums_sub_ds'])} finished; Loss: {now_loss}")
     # Draw loss curve
     fig, ax = plt.subplots(figsize=(10, 5))
     ax.plot(loss_list)
