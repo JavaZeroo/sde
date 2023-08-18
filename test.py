@@ -15,7 +15,7 @@ from rich.panel import Panel
 from rich.pretty import Pretty
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
-import time
+import time as tt
 
 from utils.Datasets import BBdataset, MNISTdataset
 from utils.utils import plot_source_and_target_mnist, binary, save_gif_frame_mnist
@@ -59,7 +59,7 @@ def main():
     np.random.seed(seed)
 
     experiment_name = args.task
-    log_dir = Path('experiments') / experiment_name / 'test' / time.strftime("%Y-%m-%d/%H_%M_%S/")  
+    log_dir = Path('experiments') / experiment_name / 'test' / tt.strftime("%Y-%m-%d/%H_%M_%S/")  
     ds_cached_dir = Path('experiments') / experiment_name / 'data'
     log_dir.mkdir(parents=True, exist_ok=True)
     ds_cached_dir.mkdir(parents=True, exist_ok=True)
@@ -82,7 +82,7 @@ def main_worker(args):
     console.log(f"Saving to {Path.absolute(args.log_dir)}")
 
     model, before_train, after_train = get_model_before_after(args)
-        
+    # console.log(model)
     if args.checkpoint is not None:
         try:
             model.load_state_dict(torch.load(args.checkpoint))
@@ -116,8 +116,7 @@ def main_worker(args):
     pred_drift = torch.zeros_like(test_drift)
 
     pred_bridge[0, :] = test_source
-    model.to(args.device)
-    model.eval()
+    # model.eval()
     
     sigma=1
     console.rule("[bold deep_sky_blue1 blink]Testing")
@@ -132,7 +131,10 @@ def main_worker(args):
             for i in range(len(test_ts) - 1):
                 dt = (test_ts[i+1] - test_ts[i])
                 test_source_reshaped = test_source
-                test_ts_reshaped = test_ts[i].repeat(test_source.shape[0]).reshape(-1, 1, 1, 1).repeat(1, 1, 28, 28)
+                if args.time_expand:
+                    test_ts_reshaped = test_ts[i].repeat(test_source.shape[0]).reshape(-1, 1, 1, 1).repeat(1, 1, 28, 28)
+                else:
+                    test_ts_reshaped = torch.unsqueeze(test_ts[i], dim=0).T
                 pred_bridge_reshaped = pred_bridge[i]
 
                 ret = normalize_dataset_with_metadata(real_metadata, source=test_source_reshaped, ts=test_ts_reshaped, bridge=pred_bridge_reshaped)
@@ -145,11 +147,12 @@ def main_worker(args):
                 else:
                     x = torch.concat([test_source_reshaped, pred_bridge_reshaped], axis=1)
                     time = test_ts_reshaped.to(args.device)
-                x.to(args.device)
-                
                 if before_train is not None:
                     x = before_train(x)
-                dydt = model(x, time) if time else model(x)
+
+                x = x.to(args.device)
+                model = model.to(args.device)
+                dydt = model(x, time) if time is not None else model(x)
                 dydt = dydt.cpu()
                 if after_train is not None:
                     dydt = after_train(dydt)    

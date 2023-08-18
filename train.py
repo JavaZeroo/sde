@@ -23,7 +23,7 @@ from utils.model_utils import get_model_before_after
 import argparse
 
 def check_model_task(args):
-    if args.task == 'gaussian2mnist':
+    if args.task.startswith('gaussian2mnist'):
         assert args.model in ['tunet++', 'unet++', 'unet']
         args.time_expand = False
     else:
@@ -46,7 +46,8 @@ def main():
     parser.add_argument('--batch_size', type=int, default=8000)
     parser.add_argument('-n','--normalize', action='store_true')
     parser.add_argument('--num_workers', type=int, default=20)
-       
+    parser.add_argument('--filter_number', type=int)
+    
     args = parser.parse_args()
     check_model_task(args)
     
@@ -57,13 +58,18 @@ def main():
     np.random.seed(seed)
 
     experiment_name = args.task
+    if args.change_epsilons:
+        experiment_name += '_change_epsilons'
+    if args.filter_number is not None and 'mnist' in args.task:
+        experiment_name += f'_filter{args.filter_number}'
+    
     log_dir = Path('experiments') / experiment_name / 'train' / time.strftime("%Y-%m-%d/%H_%M_%S/")  
     ds_cached_dir = Path('experiments') / experiment_name / 'data'
     log_dir.mkdir(parents=True, exist_ok=True)
     ds_cached_dir.mkdir(parents=True, exist_ok=True)
     args.log_dir = log_dir
     args.ds_cached_dir = ds_cached_dir
-    if args.task == 'gaussian2mnist':
+    if args.task.startswith('gaussian2mnist'):
         args.dim = 1
     else:
         args.dim = 2
@@ -86,8 +92,8 @@ def train(args, model, train_dl, optimizer, scheduler, loss_fn, before_train=Non
             x = before_train(x)
         x = x.to(args.device)
         y = y.to(args.device)
-        time = time.to(args.device) if time else None
-        pred = model(x, time) if time else model(x)
+        time = time.to(args.device) if time is not None else None
+        pred = model(x, time) if time is not None else model(x)
         if after_train is not None:
             pred = after_train(pred)
         loss = loss_fn(pred, y)
@@ -161,7 +167,7 @@ def main_worker(args):
                 progress.update(task2, visible=False)
                 progress.remove_task(task2)
                 torch.save(model.state_dict(), args.log_dir / f'model_{model.__class__.__name__}_{int(iter)}.pth')
-                progress.update(task1, advance=1, description="[red]Training whole dataset (lr: %2.5f) (loss=%2.5f)" % (cur_lr, now_loss))
+                progress.update(task1, advance=1, description="[red]Training whole dataset (l   r: %2.5f) (loss=%2.5f)" % (cur_lr, now_loss))
 
     # Draw loss curve
     fig, ax = plt.subplots(figsize=(10, 5))

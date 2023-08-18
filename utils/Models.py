@@ -46,7 +46,8 @@ class timeUnetPlusPlus(smp.UnetPlusPlus):
         return embedding
 
     def forward(self, x, timesteps):        
-        emb = self.time_embed(self.timestep_embedding(timesteps, self.model_channels))
+        emb = self.timestep_embedding(timesteps, self.model_channels)
+        emb = self.time_embed(emb)
         self.check_input_shape(x)
         features = self.encoder(x)
         for index, f in enumerate(features):

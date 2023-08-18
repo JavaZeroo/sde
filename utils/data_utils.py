@@ -5,6 +5,7 @@ import pickle
 from rich.progress import track
 from utils.normalize import get_total_mean_std
 from torch.utils.data import Dataset, DataLoader
+import numpy as np
 
 def gen_bridge_2d(x, y, ts, T, num_samples):
     """
@@ -139,16 +140,19 @@ def normalize_dataset_with_metadata(metadata, ts=None, bridge=None, drift=None, 
     return retdata
 
 
-def gen_mnist_array_in_order(range=(0, 1000)):
+def gen_mnist_array_in_order(range=(0, 1000), data=None):
     """
     Generate MNIST array in order
     """
-    train_ds = torchvision.datasets.MNIST(
-        root="./data/", 
-        train=True, 
-        download=True
-        )
-    target = train_ds.data.view(-1, 1, 28, 28).float()
+    if data is None:
+        train_ds = torchvision.datasets.MNIST(
+            root="./data/", 
+            train=True, 
+            download=True
+            )
+        target = train_ds.data.view(-1, 1, 28, 28).float()
+    else:
+        target = data.view(-1, 1, 28, 28).float()
     
     # random choice nums samples
     target = target[range[0]:range[1]]
@@ -189,14 +193,12 @@ def gen_bridge(x, y, ts, T):
         bridge[i+1, :] += diffusion
     return bridge, drift
 
-def gen_mnist_data_in_order(range=(0, 1000), change_epsilons=False):
+def gen_mnist_data_in_order(range=(0, 1000), data=None, change_epsilons=False):
     """
     Generate MNIST dataset in order
     """
-    source, target = gen_mnist_array_in_order(range)
-    epsilon = 0.001
-    T = 1
-    ts = torch.arange(0, T+epsilon, epsilon)
+    
+    source, target = gen_mnist_array_in_order(range, data)
     
     T = 1
     if change_epsilons:
@@ -221,11 +223,11 @@ def gen_mnist_data(nums=100, change_epsilons=False):
     
     T = 1
     if change_epsilons:
-        epsilon1 = 0.001
-        epsilon2 = 0.0001
+        epsilon1 = 0.01
+        epsilon2 = 0.001
 
-        t1 = torch.arange(0, 0.91, epsilon1)
-        t2 = torch.arange(0.91, T, epsilon2)
+        t1 = torch.arange(0, 0.99, epsilon1)
+        t2 = torch.arange(0.99, T, epsilon2)
         ts = torch.concatenate((t1, t2))
     else:
         epsilon = 0.001
@@ -237,11 +239,27 @@ def gen_mnist_data(nums=100, change_epsilons=False):
 
 
 def preprocess_mnist_data(args):
+    if args.filter_number is not None:
+        train_ds = torchvision.datasets.MNIST(
+            root="./data/", 
+            train=True, 
+            download=True
+            )
+        imgs = []
+        for img, label in train_ds:
+            if label != args.filter_number:
+                continue
+            imgs.append(torch.Tensor(np.array(img)))
+        length = int(len(imgs)/1000)*1000
+        imgs = torch.stack(imgs[:length])
+    else:
+        imgs = None
+        length = 60000
     # check data pickle file
-    for i in track(range(60), description="Preprocessing dataset"):
+    for i in track(range(int(length/1e3)), description="Preprocessing dataset"):
         if (args.ds_cached_dir / f'new_ds_{i}.pkl').exists():
             continue
-        ts, bridge, drift, source, target = gen_mnist_data_in_order((i*1000, (i+1)*1000))
+        ts, bridge, drift, source, target = gen_mnist_data_in_order((i*1000, (i+1)*1000), data=imgs, change_epsilons=args.change_epsilons)
         _, metadata = normalize_dataset(ts, bridge, drift, source, target)
         new_ds = MNISTdataset(ts, bridge, drift, source, target)
         new_ds.metadata = metadata
@@ -250,7 +268,7 @@ def preprocess_mnist_data(args):
     get_total_mean_std(args)
     
     ret = {
-        "nums_sub_ds": 60
+        "nums_sub_ds": int(length/1e3)
     }
     
     return ret
