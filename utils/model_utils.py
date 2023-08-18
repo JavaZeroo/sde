@@ -1,12 +1,15 @@
 import segmentation_models_pytorch as smp
-from utils.Models import MLP
+from utils.Models import MLP, timeUnetPlusPlus
+import torch.nn.functional as F
+
 
 
 def get_model_before_after(args):
-    if args.task == 'gaussian2minst':
-        model = smp.Unet(
+    if args.task == 'gaussian2mnist':
+        model = timeUnetPlusPlus(
             encoder_name="efficientnet-b0",
-            in_channels=3,
+            model_channels=32,
+            in_channels=2,
             encoder_depth=3, 
             decoder_channels=(64, 32, 16),
             classes=1,

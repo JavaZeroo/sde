@@ -3,6 +3,8 @@ import torchvision
 from utils.Datasets import MNISTdataset
 import pickle
 from rich.progress import track
+from utils.normalize import get_total_mean_std
+from torch.utils.data import Dataset, DataLoader
 
 def gen_bridge_2d(x, y, ts, T, num_samples):
     """
@@ -235,21 +237,36 @@ def gen_mnist_data(nums=100, change_epsilons=False):
 
 
 def preprocess_mnist_data(args):
-    
     # check data pickle file
     for i in track(range(60), description="Preprocessing dataset"):
-        if (args.log_dir / f'data/new_ds_{i}.pkl').exists():
-            break
+        if (args.ds_cached_dir / f'new_ds_{i}.pkl').exists():
+            continue
         ts, bridge, drift, source, target = gen_mnist_data_in_order((i*1000, (i+1)*1000))
         _, metadata = normalize_dataset(ts, bridge, drift, source, target)
         new_ds = MNISTdataset(ts, bridge, drift, source, target)
         new_ds.metadata = metadata
-        pickle.dump(new_ds, open(args.log_dir / f'data/new_ds_{i}.pkl', 'wb'))
+        pickle.dump(new_ds, open(args.ds_cached_dir / f'new_ds_{i}.pkl', 'wb'))
+        
+    get_total_mean_std(args)
+    
+    ret = {
+        "nums_sub_ds": 60
+    }
+    
+    return ret
 
 
 
-def get_ds(args):
-    if args.task == 'gaussian2minst':
-        ts, bridge, drift, source, target = gen_mnist_data(nums=25)
+def gen_ds(args):
+    if args.task == 'gaussian2mnist':
+        ret = preprocess_mnist_data(args)
+        return ret
     # ts, bridge, drift, source, target, ret = normalize_dataset(ts, bridge, drift, source, target)
 
+
+def read_ds_from_pkl(args, real_metadata, path):
+    new_ds = pickle.loads(open(path, 'rb').read())
+    new_ds = normalize_dataset_with_metadata(real_metadata, **new_ds.to_dict())
+    new_ds = MNISTdataset(new_ds['ts'], new_ds['bridge'], new_ds['drift'], new_ds['source'], new_ds['target'], time_expand=args.time_expand)
+    new_dl = DataLoader(new_ds, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
+    return new_dl

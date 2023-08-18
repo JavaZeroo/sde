@@ -1,5 +1,5 @@
 from torch.utils.data import Dataset, DataLoader 
-from  torch import arange,  meshgrid, stack, cat, split, concat
+from  torch import arange,  meshgrid, stack, cat, split, concat, unsqueeze
 
 class BBdataset(Dataset):
     def __init__(self, data):
@@ -13,13 +13,14 @@ class BBdataset(Dataset):
     
     
 class MNISTdataset(Dataset):
-    def __init__(self, ts, bridge, drift, source_sample, target_sample):
+    def __init__(self, ts, bridge, drift, source, target, time_expand=True):
         self.ts = ts
         self.bridge = bridge
         self.drift = drift
-        self.source_sample = source_sample
-        self.target_sample = target_sample
-
+        self.source = source
+        self.target = target
+        self.time_expand = time_expand
+        
         lent,lensample,_,_,_ = bridge.shape
         # 创建一维索引
         i = arange(lent)
@@ -39,13 +40,30 @@ class MNISTdataset(Dataset):
     
     def __getitem__(self, index):
         ti, samplei = self.index_list[index]
-        start = self.source_sample[samplei].unsqueeze(dim=0)
-        times = self.ts[ti].repeat(28, 28).unsqueeze(dim=0).unsqueeze(dim=0)
+        start = self.source[samplei].unsqueeze(dim=0)
+        if self.time_expand:
+            times = self.ts[ti].repeat(28, 28).unsqueeze(dim=0).unsqueeze(dim=0)
+        else:
+            times = self.ts[ti]
         positions = self.bridge[ti, samplei, :, :].unsqueeze(dim=0)
         scores = self.drift[ti, samplei, :, :].unsqueeze(dim=0)
         # print(start.shape, times.shape, positions.shape, scores.shape)
-        raw_data = concat([start, times, positions, scores], dim=1)
-        return raw_data
+        if self.time_expand:
+            raw_data = concat([start, times, positions, scores], dim=1)
+            return raw_data
+        else:
+            raw_data = concat([start, positions, scores], dim=1)
+            return raw_data, times
+            
+    
+    def to_dict(self):
+        return {
+            "ts": self.ts,
+            "bridge": self.bridge,
+            "drift": self.drift,
+            "source": self.source,
+            "target": self.target,
+        }
         
 def get_dataloader(raw_data, args):
     train_ds = BBdataset(raw_data)

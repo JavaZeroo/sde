@@ -9,6 +9,8 @@ def calculate_total_mean_std(mean, std):
     return total_mean, total_std
 
 def get_total_mean_std(args):
+    if (args.ds_cached_dir / 'real_mean_std.pkl').exists():
+        return pickle.loads(open(args.ds_cached_dir / 'real_mean_std.pkl', 'rb').read())
     ds_cached_files = [f for f in args.ds_cached_dir.iterdir() if f.name.startswith('new_ds_')]
     ds_cached_files.sort(key=lambda x: int(x.name.split('_')[-1].split('.')[0]))
     nums_ds = len(ds_cached_files)

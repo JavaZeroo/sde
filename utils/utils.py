@@ -10,6 +10,8 @@ import matplotlib.animation as animation
 from rich import print
 from tqdm import tqdm
 import torchvision
+import math
+from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
 
 def draw_gaussian2d(ts, bridge, colors=True):
     def get_color(point):
@@ -45,7 +47,7 @@ def draw_gaussian2d(ts, bridge, colors=True):
 
     fig.show()
     
-def draw_gaussian2d_gif(bridge):
+def draw_gaussian2d_gif(args, bridge):
     """
     Decrapated
     """
@@ -82,7 +84,7 @@ def draw_gaussian2d_gif(bridge):
     # 创建动画
     ani = animation.FuncAnimation(fig, update, frames=len(ts), interval=100)
     # 保存为GIF需要花费6分钟左右
-    ani.save(log_dir / 'brownian_bridge.gif', writer='imagemagick')
+    ani.save(args.log_dir / 'brownian_bridge.gif', writer='imagemagick')
 
 
 def print_debug(*args):
@@ -208,7 +210,7 @@ def save_gif_frame(bridge, save_path=None, bound=10):
 
 def binary(x):
     x = (x - x.min()) / (x.max() - x.min())
-    x = torch.where(x > 0.3, torch.ones_like(x), torch.zeros_like(x))
+    x = torch.where(x > 0.3, torch.zeros_like(x), torch.ones_like(x))
     return x
 
 def concat_mnist(data, x=5, y=5):
@@ -232,7 +234,7 @@ def plot_source_and_target_mnist(sour, targ, left_title="Source Sample", right_t
     if save_path is not None:
         fig.savefig(save_path)
 
-def save_gif_frame_mnist(bridge, save_path=None, save_name='brownian_bridge.gif'):
+def save_gif_frame_mnist(bridge, save_path=None, save_name='brownian_bridge.gif', norm=False):
     assert save_path is not None, "save_path cannot be None"
     save_path = Path(save_path)
     bridge = bridge[::10, :, :].numpy()  # 降低采样率
@@ -242,20 +244,31 @@ def save_gif_frame_mnist(bridge, save_path=None, save_name='brownian_bridge.gif'
         shutil.rmtree(temp_dir)
     temp_dir.mkdir(exist_ok=True)
     frame = 0
-    
-    # color_map = -np.sqrt(bridge[0, :, 0]**2 + bridge[0, :, 1]**2)
-    for i in track(range(bridge.shape[0]), description="Processing image"):
-        fig, ax = plt.subplots(figsize=(8, 8))
-        ax.clear()
-        ax.imshow(concat_mnist(bridge[i]).cpu().numpy(), cmap='gray')
-        fig.savefig(save_path / 'temp' / f'{frame:03d}.png', dpi=100)
-        frame += 1
-        fig.show()
-        plt.close('all')
-    frames = []
-    for i in range(bridge.shape[0]):
-        frame_image = imageio.imread(save_path / 'temp' / f'{i:03d}.png')
-        frames.append(frame_image)
-    imageio.mimsave(save_path / save_name, frames, duration=0.2)
-    if temp_dir.exists():
-        shutil.rmtree(temp_dir)
+    with Progress(
+            SpinnerColumn(spinner_name='earth'),
+            *Progress.get_default_columns(),
+            TimeElapsedColumn(),
+            transient=False,
+        ) as progress:
+        task1 = progress.add_task(f"Processing image {save_name}", total=bridge.shape[0])
+        for i in range(bridge.shape[0]):
+            fig, ax = plt.subplots(figsize=(8, 8))
+            ax.clear()
+            img = concat_mnist(bridge[i])
+            if norm:
+                img = (img - img.min()) / (img.max() - img.min())
+            ax.imshow(img.cpu().numpy(), cmap='gray')
+            fig.savefig(save_path / 'temp' / f'{frame:03d}.png', dpi=100)
+            frame += 1
+            fig.show()
+            plt.close('all')
+            progress.advance(task1)
+        frames = []
+        for i in range(bridge.shape[0]):
+            frame_image = imageio.imread(save_path / 'temp' / f'{i:03d}.png')
+            frames.append(frame_image)
+        imageio.mimsave(save_path / save_name, frames, duration=0.2)
+        if temp_dir.exists():
+            shutil.rmtree(temp_dir)
+
+
