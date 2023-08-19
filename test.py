@@ -1,15 +1,9 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import pickle
 
 import torch
-from torch import nn, optim
-from torch.utils.data import Dataset, DataLoader
-import torch.nn.functional as F
 
-from torch.optim.lr_scheduler import CosineAnnealingLR, CosineAnnealingWarmRestarts, StepLR, OneCycleLR
 from pathlib import Path
-from sklearn.datasets import *
 
 from rich.panel import Panel
 from rich.pretty import Pretty
@@ -17,15 +11,14 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
 import time as tt
 
-from utils.Datasets import BBdataset, MNISTdataset
 from utils.utils import plot_source_and_target_mnist, binary, save_gif_frame_mnist
-from utils.data_utils import gen_mnist_data, reverse_normalize_dataset, normalize_dataset_with_metadata, gen_ds
+from utils.data_utils import gen_mnist_data, reverse_normalize_dataset, normalize_dataset_with_metadata
 from utils.model_utils import get_model_before_after
 import argparse
 
 def check_model_task(args):
     if args.task == 'gaussian2mnist':
-        assert args.model in ['tunet++', 'unet++', 'unet']
+        assert args.model in ['tunet++', 'aunet', 'unet++', 'unet']
         args.time_expand = False
     else:
         assert args.model in ['mlp', 'unet++', 'unet']
@@ -45,7 +38,7 @@ def main():
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--iter_nums', type=int, default=1)
     parser.add_argument('--epoch_nums', type=int, default=2)
-    parser.add_argument('--batch_size', type=int, default=8000)
+    parser.add_argument('-b', '--batch_size', type=int, default=8000)
     parser.add_argument('-n','--normalize', action='store_true')
     parser.add_argument('--tarined_data', action='store_true')
     parser.add_argument('--filter_number', type=int)
@@ -60,7 +53,7 @@ def main():
     np.random.seed(seed)
 
     experiment_name = args.task 
-    if args.change_epsilons:
+    if args.change_epsilons: 
         experiment_name += '_change_epsilons'
     if args.filter_number is not None and 'mnist' in args.task:
         experiment_name += f'_filter{args.filter_number}'
@@ -138,10 +131,12 @@ def main_worker(args):
             for i in range(len(test_ts) - 1):
                 dt = (test_ts[i+1] - test_ts[i])
                 test_source_reshaped = test_source
+                
                 if args.time_expand:
                     test_ts_reshaped = test_ts[i].repeat(test_source.shape[0]).reshape(-1, 1, 1, 1).repeat(1, 1, 28, 28)
                 else:
                     test_ts_reshaped = torch.unsqueeze(test_ts[i], dim=0).T
+
                 pred_bridge_reshaped = pred_bridge[i]
 
                 ret = normalize_dataset_with_metadata(real_metadata, source=test_source_reshaped, ts=test_ts_reshaped, bridge=pred_bridge_reshaped)
@@ -156,7 +151,6 @@ def main_worker(args):
                     time = test_ts_reshaped.to(args.device)
                 if before_train is not None:
                     x = before_train(x)
-
                 x = x.to(args.device)
                 model = model.to(args.device)
                 dydt = model(x, time) if time is not None else model(x)

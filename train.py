@@ -24,7 +24,7 @@ import argparse
 
 def check_model_task(args):
     if args.task.startswith('gaussian2mnist'):
-        assert args.model in ['tunet++', 'unet++', 'unet']
+        assert args.model in ['tunet++', 'aunet']
         args.time_expand = False
     else:
         assert args.model in ['mlp', 'unet++', 'unet']
@@ -43,7 +43,7 @@ def main():
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--iter_nums', type=int, default=1)
     parser.add_argument('--epoch_nums', type=int, default=3)
-    parser.add_argument('--batch_size', type=int, default=8000)
+    parser.add_argument('-b','--batch_size', type=int, default=8000)
     parser.add_argument('-n','--normalize', action='store_true')
     parser.add_argument('--num_workers', type=int, default=20)
     parser.add_argument('--filter_number', type=int)
@@ -80,11 +80,10 @@ def main():
 def train(args, model, train_dl, optimizer, scheduler, loss_fn, before_train=None, after_train=None):
     losses = 0
     for data in train_dl:
-        if args.model == 'tunet++':
+        if isinstance(data, list):
             training_data, time = data
         else:
-            training_data = data
-            time = None
+            training_data, time = data, None
             
         training_data = training_data.squeeze().float().cpu()
         x, y = training_data[:, :-args.dim], training_data[:, -args.dim:]
@@ -168,15 +167,19 @@ def main_worker(args):
                 progress.remove_task(task2)
                 torch.save(model.state_dict(), args.log_dir / f'model_{model.__class__.__name__}_{int(iter)}.pth')
                 progress.update(task1, advance=1, description="[red]Training whole dataset (lr: %2.5f) (loss=%2.5f)" % (cur_lr, now_loss))
-                progress.log(f"[green]sub dataset {int(iter%ds_info['nums_sub_ds'])} finished; Loss: {now_loss}")
+                progress.log("[green]sub dataset %d finished; Loss: %2.5f" % (int(iter%ds_info['nums_sub_ds']), now_loss))
+    
+    console.rule("[bold bright_green blink]Finished Training")
+    console.log("Final loss: %2.5f" % (loss_list[-1]))
     # Draw loss curve
     fig, ax = plt.subplots(figsize=(10, 5))
     ax.plot(loss_list)
     ax.set_title("Loss")
     fig.savefig(args.log_dir / 'loss.png')
+    console.log("Loss curve saved to {}".format(args.log_dir / 'loss.png'))
 
     torch.save(model.state_dict(), args.log_dir / f'model_{model.__class__.__name__}_final.pth')
-
+    console.log("Model saved to {}".format(args.log_dir / f'model_{model.__class__.__name__}_final.pth'))
 
 if __name__ == '__main__':
     main()
