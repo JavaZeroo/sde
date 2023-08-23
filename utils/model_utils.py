@@ -8,8 +8,8 @@ def get_model_before_after(args):
     if args.task == 'gaussian2mnist':
         if args.model == 'tunet++':
             model = timeUnetPlusPlus(
-                encoder_name="efficientnet-b0",
-                model_channels=32,
+                encoder_name="efficientnet-b4",
+                model_channels=64,
                 in_channels=2,
                 encoder_depth=3, 
                 decoder_channels=(64, 32, 16),
@@ -19,8 +19,8 @@ def get_model_before_after(args):
             after_train = lambda x: x[:, :, 2:-2, 2:-2]
         elif args.model == 'unet++':
             model = smp.UnetPlusPlus(
-                encoder_name="efficientnet-b0",
-                model_channels=32,
+                encoder_name="efficientnet-b5",
+                model_channels=64,
                 in_channels=2,
                 encoder_depth=3, 
                 decoder_channels=(64, 32, 16),

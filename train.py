@@ -48,6 +48,9 @@ def main():
     parser.add_argument('--num_workers', type=int, default=20)
     parser.add_argument('--filter_number', type=int)
     
+    parser.add_argument('--debug', action='store_true')
+    
+    
     args = parser.parse_args()
     check_model_task(args)
     
@@ -63,7 +66,11 @@ def main():
     if args.filter_number is not None and 'mnist' in args.task:
         experiment_name += f'_filter{args.filter_number}'
     
-    log_dir = Path('experiments') / experiment_name / 'train' / time.strftime("%Y-%m-%d/%H_%M_%S/")  
+    if args.debug:
+        log_dir = Path('experiments') / 'debug' / 'test' / time.strftime("%Y-%m-%d/%H_%M_%S/")  
+    else:
+        log_dir = Path('experiments') / experiment_name / 'test' / time.strftime("%Y-%m-%d/%H_%M_%S/")  
+    
     ds_cached_dir = Path('experiments') / experiment_name / 'data'
     log_dir.mkdir(parents=True, exist_ok=True)
     ds_cached_dir.mkdir(parents=True, exist_ok=True)
@@ -77,7 +84,7 @@ def main():
     args.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     main_worker(args)
 
-def train(args, model, train_dl, optimizer, scheduler, loss_fn, before_train=None, after_train=None):
+def train(args, model, train_dl, optimizer, loss_fn, before_train=None, after_train=None):
     losses = 0
     for data in train_dl:
         if isinstance(data, list):
@@ -92,14 +99,16 @@ def train(args, model, train_dl, optimizer, scheduler, loss_fn, before_train=Non
         x = x.to(args.device)
         y = y.to(args.device)
         time = time.to(args.device) if time is not None else None
+        
+        if args.debug:
+            print(x.shape, time.shape if time is not None else None)
+            
         pred = model(x, time) if time is not None else model(x)
         if after_train is not None:
             pred = after_train(pred)
         loss = loss_fn(pred, y)
         loss.backward()
         optimizer.step()
-        if scheduler is not None:
-            scheduler.step()
         optimizer.zero_grad()
         losses += loss.item() / len(train_dl)
     return losses
@@ -127,7 +136,7 @@ def main_worker(args):
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     real_metadata = pickle.loads(open(args.ds_cached_dir / 'real_mean_std.pkl', 'rb').read())
 
-    if args.scheduler == 'cosine':
+    if args.scheduler == 'cos':
         console.log(f"Using CosineAnnealingLR")
         scheduler = OneCycleLR(optimizer, max_lr=args.lr, total_steps=ds_info['nums_sub_ds']*args.epoch_nums*args.iter_nums)
     else:
@@ -159,7 +168,9 @@ def main_worker(args):
 
                 task2 = progress.add_task(f"[dark_orange]Training sub dataset {int(iter%ds_info['nums_sub_ds'])}", total=args.iter_nums)
                 for _ in range(args.iter_nums):
-                    now_loss = train(args, model ,new_dl, optimizer, scheduler, loss_fn, before_train, after_train)
+                    now_loss = train(args, model ,new_dl, optimizer, loss_fn, before_train, after_train)
+                    if scheduler is not None:
+                        scheduler.step()
                     loss_list.append(now_loss)
                     cur_lr = optimizer.param_groups[-1]['lr']
                     progress.update(task2, advance=1)

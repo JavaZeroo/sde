@@ -42,6 +42,8 @@ def main():
     parser.add_argument('-n','--normalize', action='store_true')
     parser.add_argument('--tarined_data', action='store_true')
     parser.add_argument('--filter_number', type=int)
+    
+    parser.add_argument('--debug', action='store_true')
 
     args = parser.parse_args()
     check_model_task(args)
@@ -52,14 +54,16 @@ def main():
         torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
 
-    experiment_name = args.task 
+    experiment_name = args.task
     if args.change_epsilons: 
         experiment_name += '_change_epsilons'
     if args.filter_number is not None and 'mnist' in args.task:
         experiment_name += f'_filter{args.filter_number}'
     
-    
-    log_dir = Path('experiments') / experiment_name / 'test' / tt.strftime("%Y-%m-%d/%H_%M_%S/")  
+    if args.debug:
+        log_dir = Path('experiments') / 'debug' / 'test' / tt.strftime("%Y-%m-%d/%H_%M_%S/")  
+    else:
+        log_dir = Path('experiments') / experiment_name / 'test' / tt.strftime("%Y-%m-%d/%H_%M_%S/")  
     ds_cached_dir = Path('experiments') / experiment_name / 'data'
     log_dir.mkdir(parents=True, exist_ok=True)
     ds_cached_dir.mkdir(parents=True, exist_ok=True)
@@ -135,7 +139,8 @@ def main_worker(args):
                 if args.time_expand:
                     test_ts_reshaped = test_ts[i].repeat(test_source.shape[0]).reshape(-1, 1, 1, 1).repeat(1, 1, 28, 28)
                 else:
-                    test_ts_reshaped = torch.unsqueeze(test_ts[i], dim=0).T
+                    test_ts_reshaped = test_ts[i].repeat(test_source.shape[0])
+                    # test_ts_reshaped = torch.unsqueeze(test_ts[i].repeat(test_source.shape[0]), dim=0).T
 
                 pred_bridge_reshaped = pred_bridge[i]
 
@@ -153,6 +158,8 @@ def main_worker(args):
                     x = before_train(x)
                 x = x.to(args.device)
                 model = model.to(args.device)
+                if args.debug:
+                    print(x.shape, time.shape if time is not None else None)
                 dydt = model(x, time) if time is not None else model(x)
                 dydt = dydt.cpu()
                 if after_train is not None:
