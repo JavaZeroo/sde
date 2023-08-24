@@ -178,7 +178,7 @@ def main_worker(args):
                 progress.remove_task(task2)
                 torch.save(model.state_dict(), args.log_dir / f'model_{model.__class__.__name__}_{int(iter)}.pth')
                 progress.update(task1, advance=1, description="[red]Training whole dataset (lr: %2.5f) (loss=%2.5f)" % (cur_lr, now_loss))
-                progress.log("[green]sub dataset %d finished; Loss: %2.5f" % (int(iter%ds_info['nums_sub_ds']), now_loss))
+                console.log("[green]sub dataset %d finished; Loss: %2.5f" % (int(iter%ds_info['nums_sub_ds']), now_loss))
     
     console.rule("[bold bright_green blink]Finished Training")
     console.log("Final loss: %2.5f" % (loss_list[-1]))
