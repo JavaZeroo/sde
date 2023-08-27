@@ -20,6 +20,7 @@ import time
 from utils.Datasets import BBdataset, MNISTdataset
 from utils.data_utils import gen_ds, read_ds_from_pkl
 from utils.model_utils import get_model_before_after
+from utils.ema import ema_register, ema_update, ema_copy
 import argparse
 
 def check_model_task(args):
@@ -47,6 +48,7 @@ def main():
     parser.add_argument('-n','--normalize', action='store_true')
     parser.add_argument('--num_workers', type=int, default=20)
     parser.add_argument('--filter_number', type=int)
+    parser.add_argument('--ema',action='store_true')
     
     parser.add_argument('--debug', action='store_true')
     
@@ -86,6 +88,9 @@ def main():
 
 def train(args, model, train_dl, optimizer, loss_fn, before_train=None, after_train=None):
     losses = 0
+    if args.ema:
+        ema_parameters = ema_register(model)
+
     for data in train_dl:
         if isinstance(data, list):
             training_data, time = data
@@ -110,7 +115,15 @@ def train(args, model, train_dl, optimizer, loss_fn, before_train=None, after_tr
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
+        
+        if args.ema:
+            ema_update(ema_parameters, model, 0.99)
+
+        
         losses += loss.item() / len(train_dl)
+        
+    if args.ema:
+        ema_copy(ema_parameters, model)
     return losses
 
 def main_worker(args):
