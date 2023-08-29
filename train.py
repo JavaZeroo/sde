@@ -69,9 +69,9 @@ def main():
         experiment_name += f'_filter{args.filter_number}'
     
     if args.debug:
-        log_dir = Path('experiments') / 'debug' / 'test' / time.strftime("%Y-%m-%d/%H_%M_%S/")  
+        log_dir = Path('experiments') / 'debug' / 'train' / time.strftime("%Y-%m-%d/%H_%M_%S/")  
     else:
-        log_dir = Path('experiments') / experiment_name / 'test' / time.strftime("%Y-%m-%d/%H_%M_%S/")  
+        log_dir = Path('experiments') / experiment_name / 'train' / time.strftime("%Y-%m-%d/%H_%M_%S/")  
     
     ds_cached_dir = Path('experiments') / experiment_name / 'data'
     log_dir.mkdir(parents=True, exist_ok=True)
