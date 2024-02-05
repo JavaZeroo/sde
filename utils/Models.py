@@ -19,14 +19,26 @@ class timeUnetPlusPlus(smp.UnetPlusPlus):
         )
         self.lns = nn.ModuleList()
         self.lns.append(nn.Linear(time_embed_dim, 2))
+        # self.lns.append(nn.Linear(time_embed_dim, 32))
+        # self.lns.append(nn.Linear(time_embed_dim, 24))
+        # self.lns.append(nn.Linear(time_embed_dim, 40))
+        self.lns.append(nn.Linear(time_embed_dim, 48))
         self.lns.append(nn.Linear(time_embed_dim, 32))
-        self.lns.append(nn.Linear(time_embed_dim, 24))
-        self.lns.append(nn.Linear(time_embed_dim, 40))
+        self.lns.append(nn.Linear(time_embed_dim, 56))
+        
+        self.convs = nn.ModuleList()
+        self.convs.append(nn.Conv2d(2 * 2, 2, 1))
+        # self.convs.append(nn.Conv2d(32 * 2, 32, 1))
+        # self.convs.append(nn.Conv2d(24 * 2, 24, 1))
+        # self.convs.append(nn.Conv2d(40 * 2, 40, 1))
+        self.convs.append(nn.Conv2d(48 * 2, 48, 1))
+        self.convs.append(nn.Conv2d(32 * 2, 32, 1))
+        self.convs.append(nn.Conv2d(56 * 2, 56, 1))
         
         self.name = 'timeUnetPlusPlus'
         self.initialize()
 
-    def timestep_embedding(self, timesteps, dim, max_period=10000):
+    def timestep_embedding(self, timesteps, dim, max_period=1000):
         """
         Create sinusoidal timestep embeddings.
         :param timesteps: a 1-D Tensor of N indices, one per batch element.
@@ -54,7 +66,9 @@ class timeUnetPlusPlus(smp.UnetPlusPlus):
             temp_emb = self.lns[index](emb)
             while len(temp_emb.shape) < len(f.shape):
                 temp_emb = temp_emb[..., None]
-            f = f + temp_emb
+            # f = f + temp_emb
+            f = torch.concat([f, temp_emb.repeat(1, 1, *f.shape[-2:])], dim=1)
+            f = self.convs[index](f)
         decoder_output = self.decoder(*features)
 
         masks = self.segmentation_head(decoder_output)
