@@ -73,8 +73,7 @@ class MLP(nn.Module):
         self.fcin = nn.Linear(input_dim, hidden_dim)
         self.fcs = nn.ModuleList()
         for i in range(hidden_layers):
-            self.fcs.append(nn.Linear(hidden_dim, hidden_dim))
-            self.fcs.append(nn.BatchNorm1d(hidden_dim))
+            self.fcs.append(nn.Sequential(nn.Linear(hidden_dim, hidden_dim),nn.BatchNorm1d(hidden_dim)))
         self.fcout = nn.Linear(hidden_dim, output_dim)
         self.relu = nn.ReLU()
         self.mean = mean
